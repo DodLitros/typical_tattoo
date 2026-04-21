@@ -11,6 +11,7 @@ export function useRegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
   
   const updateField = (field: keyof NewClient, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -32,5 +33,7 @@ export function useRegisterForm() {
     setOtpSent,
     otpCode,
     setOtpCode,
+    isVerified,
+    setIsVerified,
   };
 }

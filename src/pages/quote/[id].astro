@@ -1,0 +1,30 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import QuoteRequestForm from "../../features/quote/components/QuoteRequestForm";
+import { supabase } from "../../lib/supabaseClient";
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+// Validar que el quote_request existe
+if (!id) {
+  return Astro.redirect("/");
+}
+
+const { data: quoteRequest, error } = await supabase
+  .from("quote_request")
+  .select("id, client_id, status")
+  .eq("id", id)
+  .single();
+
+if (error || !quoteRequest) {
+  return Astro.redirect("/");
+}
+---
+
+<MainLayout title="Solicitud de Cotización">
+  <section style={{ padding: "2em 1em" }}>
+    <QuoteRequestForm client:load quoteRequestId={id} />
+  </section>
+</MainLayout>
