@@ -11,10 +11,7 @@ const options = {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
-  },
-  global: {
-    headers: { 'Content-Type': 'application/json' },
-  },
+  }
 }
 export const supabase = createClient(supabaseUrl, supabaseKey, options);
 const { data, error } = await supabase.auth.getSession();

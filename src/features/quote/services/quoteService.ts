@@ -81,7 +81,11 @@ export async function uploadQuoteMedia(
   debugger;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const fileName = `${quoteRequestId}/${Date.now()}-${file.name}`;
+    const safeName = file.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // quita tildes
+      .replace(/[^a-zA-Z0-9._-]/g, "_"); // reemplaza espacios y especiales
+    const fileName = `${quoteRequestId}/${Date.now()}-${safeName}`;
 
     // Subir archivo a Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
