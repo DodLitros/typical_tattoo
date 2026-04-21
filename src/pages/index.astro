@@ -1,17 +1,28 @@
 ---
+import MainLayout from "../layouts/MainLayout.astro";
+import Card from "../components/ui/Card";
+import QuoteModal from "../features/quote/components/QuoteModal";
+import { getClients } from "../features/quote/services/quoteService";
+
+const { data: clients, error } = await getClients();
 
 ---
+<MainLayout title="Typical Tattoo">
+  <section>
+    <h2>Clientes recientes</h2>
+    {error ? (
+      <p>Error: {error.message}</p>
+    ) : (
+      clients?.map((entry) => (
+        <Card title={entry.full_name}>
+          <p>Teléfono: {entry.phone}</p>
+        </Card>
+      ))
+    )}
+  </section>
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+  <section>
+    <QuoteModal client:load/>
+  </section>
+</MainLayout>
+
