@@ -22,7 +22,18 @@ const { data: clients, error } = await getClients();
   </section>
 
   <section>
-    <QuoteModal client:load/>
+    <QuoteModal client:only="react"/>
   </section>
 </MainLayout>
+
+<style>
+  .portfolio-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #1a1a1a; /* Fondo oscuro tipo estudio */
+    padding: 2rem;
+  }
+</style>
 

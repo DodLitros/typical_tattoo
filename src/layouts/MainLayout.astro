@@ -2,6 +2,7 @@
 import Header from "../components/layout/Header.astro";
 import Footer from "../components/layout/Footer.astro";
 import "../styles/global.css";
+import Sketchbook from "../components/portfolio/Sketchbook";
 
 interface Props {
   title?: string;
@@ -20,9 +21,10 @@ const { title = "Typical Tattoo" } = Astro.props;
   </head>
   <body>
     <Header />
-    <main class="site-main">
+    <Sketchbook client:load />
+    <!-- <main class="site-main">
       <slot />
-    </main>
+    </main> -->
     <Footer />
   </body>
 </html>
