@@ -45,7 +45,6 @@ export default function QuoteRequestForm({ quoteRequestId }: QuoteRequestFormPro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    debugger;
     try {
       // Actualizar quote_request
       await updateQuoteRequest(quoteRequestId, {
@@ -57,9 +56,7 @@ export default function QuoteRequestForm({ quoteRequestId }: QuoteRequestFormPro
 
       // Subir archivos si existen
       if (files.length > 0) {
-        debugger;
         await uploadQuoteMedia(quoteRequestId, files);
-        debugger;
       }
 
       setSubmitSuccess(true);

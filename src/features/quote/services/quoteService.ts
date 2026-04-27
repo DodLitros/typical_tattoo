@@ -78,7 +78,6 @@ export async function uploadQuoteMedia(
   files: File[]
 ) {
   const mediaIds = [];
-  debugger;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const safeName = file.name
