@@ -13,8 +13,12 @@ body {
   color: #f8f8f8;
 }
 
-.site-header,
+.site-header{
+  text-align:center; 
+}
+
 .site-footer {
+  text-align: end;
   padding: 1rem 1.5rem;
   background: #2a2a2a;
 }

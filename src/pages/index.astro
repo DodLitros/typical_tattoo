@@ -8,6 +8,7 @@ const { data: clients, error } = await getClients();
 
 ---
 <MainLayout title="Typical Tattoo">
+  <QuoteModal client:only="react"/>
   <section>
     <h2>Clientes recientes</h2>
     {error ? (
@@ -22,7 +23,6 @@ const { data: clients, error } = await getClients();
   </section>
 
   <section>
-    <QuoteModal client:only="react"/>
   </section>
 </MainLayout>
 
