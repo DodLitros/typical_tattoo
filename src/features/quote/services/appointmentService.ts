@@ -24,6 +24,14 @@ export interface AvailableSlot {
   available: boolean;
 }
 
+export interface ExistingAppointment {
+  id: string;
+  appointment_date: string;
+  start_time: string;
+  duration_minutes: number | null;
+  status: string;
+}
+
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
@@ -76,6 +84,26 @@ function clampDuration(raw: number | null): number {
 
 export function getEffectiveDuration(raw: number | null): number {
   return clampDuration(raw);
+}
+
+export async function getExistingAppointment(quoteRequestId: string): Promise<ExistingAppointment | null> {
+  const { data } = await supabase
+    .from("appointment")
+    .select("id, appointment_date, start_time, duration_minutes, status")
+    .eq("quote_request_id", quoteRequestId)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+export function canReschedule(appointment: ExistingAppointment): boolean {
+  if (!appointment.appointment_date || !appointment.start_time) return false;
+  const aptDate = new Date(`${appointment.appointment_date}T${appointment.start_time}`);
+  const now = new Date();
+  const diffHours = (aptDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  return diffHours >= 48;
 }
 
 export async function getAvailableSlots(quoteRequestId: string): Promise<AvailableSlot[]> {
@@ -158,7 +186,7 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
 
     for (const w of freeWindows) {
       let t = w.start;
-      while (t + durationMinutes <= w.end) {
+      while (t < w.end) {
         const slotEnd = t + durationMinutes;
         slots.push({
           date: dateStr,
@@ -180,6 +208,11 @@ export async function bookAppointment(
   time: string,
   durationMinutes?: number | null
 ) {
+  const existing = await getExistingAppointment(quoteRequestId);
+  if (existing) {
+    throw new Error("Ya existe una cita agendada para esta cotización.");
+  }
+
   const { data: quoteData, error: quoteError } = await supabase
     .from("quote_request")
     .select("client_id, description")
@@ -188,7 +221,6 @@ export async function bookAppointment(
   if (quoteError) throw quoteError;
 
   const resolvedDuration = clampDuration(durationMinutes ?? null);
-
   const endTime = minutesToTime(timeToMinutes(time) + resolvedDuration);
 
   const { data: appointment, error: appointmentError } = await supabase
@@ -209,6 +241,66 @@ export async function bookAppointment(
   const { error: blockError } = await supabase.from("availability_block").insert({
     block_date: date,
     start_time: time,
+    end_time: endTime,
+    block_type: "appointment",
+    reason: `Cita agendada - Appointment ID: ${appointment.id}`,
+    sync_source: "app",
+  });
+  if (blockError) throw blockError;
+
+  return appointment;
+}
+
+export async function rescheduleAppointment(
+  quoteRequestId: string,
+  newDate: string,
+  newTime: string,
+  durationMinutes?: number | null
+) {
+  const existing = await getExistingAppointment(quoteRequestId);
+  if (!existing) {
+    throw new Error("No hay cita existente para reprogramar.");
+  }
+
+  const { error: cancelError } = await supabase
+    .from("appointment")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("id", existing.id);
+  if (cancelError) throw cancelError;
+
+  await supabase
+    .from("availability_block")
+    .delete()
+    .like("reason", `%Appointment ID: ${existing.id}%`);
+
+  const { data: quoteData, error: quoteError } = await supabase
+    .from("quote_request")
+    .select("client_id, description")
+    .eq("id", quoteRequestId)
+    .single();
+  if (quoteError) throw quoteError;
+
+  const resolvedDuration = clampDuration(durationMinutes ?? null);
+  const endTime = minutesToTime(timeToMinutes(newTime) + resolvedDuration);
+
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointment")
+    .insert({
+      client_id: quoteData.client_id,
+      quote_request_id: quoteRequestId,
+      appointment_date: newDate,
+      start_time: newTime,
+      duration_minutes: resolvedDuration,
+      status: "confirmed",
+      client_notes: quoteData.description,
+    })
+    .select()
+    .single();
+  if (appointmentError) throw appointmentError;
+
+  const { error: blockError } = await supabase.from("availability_block").insert({
+    block_date: newDate,
+    start_time: newTime,
     end_time: endTime,
     block_type: "appointment",
     reason: `Cita agendada - Appointment ID: ${appointment.id}`,
