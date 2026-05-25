@@ -104,6 +104,45 @@ export function canReschedule(appointment: ExistingAppointment): boolean {
   return diffHours >= 48;
 }
 
+async function checkOverlap(date: string, startTime: string, durationMinutes: number): Promise<void> {
+  const startMin = timeToMinutes(startTime);
+  const endMin = startMin + durationMinutes;
+  const endTime = minutesToTime(endMin);
+
+  const [existingDayApts, existingBlocks] = await Promise.all([
+    supabase.from("appointment")
+      .select("start_time, duration_minutes")
+      .eq("appointment_date", date)
+      .neq("status", "cancelled"),
+    supabase.from("availability_block")
+      .select("start_time, end_time, block_type")
+      .eq("block_date", date)
+      .in("block_type", ["time_slot", "full_day"]),
+  ]);
+
+  for (const a of existingDayApts.data || []) {
+    if (!a.start_time) continue;
+    const aStart = timeToMinutes(a.start_time);
+    const aEnd = a.duration_minutes ? aStart + a.duration_minutes : aStart + 60;
+    if (startMin < aEnd && endMin > aStart) {
+      throw new Error("Este horario se solapa con otra cita existente. Por favor elige otro.");
+    }
+  }
+
+  for (const b of existingBlocks.data || []) {
+    if (b.block_type === "full_day") {
+      throw new Error("Este día no está disponible. Por favor elige otro.");
+    }
+    if (b.start_time && b.end_time) {
+      const bStart = timeToMinutes(b.start_time);
+      const bEnd = timeToMinutes(b.end_time);
+      if (startMin < bEnd && endMin > bStart) {
+        throw new Error("Este horario se solapa con un bloqueo del artista. Por favor elige otro.");
+      }
+    }
+  }
+}
+
 export async function getAvailableSlots(quoteRequestId: string): Promise<AvailableSlot[]> {
   const today = toDateStr(new Date());
 
@@ -184,7 +223,7 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
 
     for (const w of freeWindows) {
       let t = w.start;
-      while (t < w.end) {
+      while (t + durationMinutes <= w.end) {
         const slotEnd = t + durationMinutes;
         slots.push({
           date: dateStr,
@@ -219,6 +258,8 @@ export async function bookAppointment(
   if (quoteError) throw quoteError;
 
   const resolvedDuration = clampDuration(durationMinutes ?? null);
+
+  await checkOverlap(date, time, resolvedDuration);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointment")
@@ -263,6 +304,8 @@ export async function rescheduleAppointment(
   if (quoteError) throw quoteError;
 
   const resolvedDuration = clampDuration(durationMinutes ?? null);
+
+  await checkOverlap(newDate, newTime, resolvedDuration);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointment")
