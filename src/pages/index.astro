@@ -1,29 +1,15 @@
 ---
 import MainLayout from "../layouts/MainLayout.astro";
-import Card from "../components/ui/Card";
 import QuoteModal from "../features/quote/components/QuoteModal";
 import { getClients } from "../features/quote/services/quoteService";
+import Sketchbook from "../components/portfolio/Sketchbook";
 
 const { data: clients, error } = await getClients();
 
 ---
 <MainLayout title="Typical Tattoo">
+  <Sketchbook client:load />
   <QuoteModal client:only="react"/>
-  <section>
-    <h2>Clientes recientes</h2>
-    {error ? (
-      <p>Error: {error.message}</p>
-    ) : (
-      clients?.map((entry) => (
-        <Card title={entry.full_name}>
-          <p>Teléfono: {entry.phone}</p>
-        </Card>
-      ))
-    )}
-  </section>
-
-  <section>
-  </section>
 </MainLayout>
 
 <style>
@@ -34,6 +20,11 @@ const { data: clients, error } = await getClients();
     min-height: 100vh;
     background-color: #1a1a1a; /* Fondo oscuro tipo estudio */
     padding: 2rem;
+  }
+  QuoteModal {
+    position:fixed;
+    bottom: 5vh;
+    right: 5vw;
   }
 </style>
 

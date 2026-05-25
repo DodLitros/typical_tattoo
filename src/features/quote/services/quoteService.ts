@@ -32,14 +32,14 @@ export async function createQuoteRequestForClient() {
   
   const { data, error } = await supabase
     .from("quote_request")
-    .insert({
+    .insert({ 
       client_id: user.id,
       status: "draft",
       wants_appointment: false,
     })
     .select("id")
     .single();
-  
+    debugger; 
   if (error) throw error;
   return data;
 }

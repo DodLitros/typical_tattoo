@@ -26,7 +26,14 @@ body {
 .site-main {
   padding: 1.5rem;
 }
-
+.quote-button{
+  /* font-size: 2rem; */
+  width: 20vw;
+  height: 3rem;
+  position: fixed;
+  bottom: 3rem;
+  right: 3rem;
+}
 .ui-button {
   border: 0;
   border-radius: 0.5rem;

@@ -1,6 +1,6 @@
 ---
-import MainLayout from "../../layouts/MainLayout.astro";
 import AppointmentCalendar from "../../features/quote/components/AppointmentCalendar";
+import AppointmentLayout from "../../layouts/AppointmentLayout.astro";
 
 export async function getStaticPaths() {
   return [];
@@ -12,6 +12,6 @@ if (!id) {
 }
 ---
 
-<MainLayout title="Agenda tu cita">
+<AppointmentLayout title="Escoge tu día">
   <AppointmentCalendar quoteRequestId={id} client:load />
-</MainLayout>
+</AppointmentLayout>
