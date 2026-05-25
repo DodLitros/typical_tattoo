@@ -92,8 +92,6 @@ export async function getExistingAppointment(quoteRequestId: string): Promise<Ex
     .select("id, appointment_date, start_time, duration_minutes, status")
     .eq("quote_request_id", quoteRequestId)
     .neq("status", "cancelled")
-    .order("created_at", { ascending: false })
-    .limit(1)
     .maybeSingle();
   return data;
 }
@@ -167,7 +165,7 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
 
     const busyPeriods: { start: number; end: number }[] = [];
 
-    for (const b of dayBlocks.filter((bl) => bl.block_type === "time_slot" || bl.block_type === "appointment")) {
+    for (const b of dayBlocks.filter((bl) => bl.block_type === "time_slot")) {
       if (b.start_time && b.end_time) {
         busyPeriods.push({ start: timeToMinutes(b.start_time), end: timeToMinutes(b.end_time) });
       }
@@ -221,7 +219,6 @@ export async function bookAppointment(
   if (quoteError) throw quoteError;
 
   const resolvedDuration = clampDuration(durationMinutes ?? null);
-  const endTime = minutesToTime(timeToMinutes(time) + resolvedDuration);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointment")
@@ -238,16 +235,6 @@ export async function bookAppointment(
     .single();
   if (appointmentError) throw appointmentError;
 
-  const { error: blockError } = await supabase.from("availability_block").insert({
-    block_date: date,
-    start_time: time,
-    end_time: endTime,
-    block_type: "appointment",
-    reason: `Cita agendada - Appointment ID: ${appointment.id}`,
-    sync_source: "app",
-  });
-  if (blockError) throw blockError;
-
   return appointment;
 }
 
@@ -262,16 +249,11 @@ export async function rescheduleAppointment(
     throw new Error("No hay cita existente para reprogramar.");
   }
 
-  const { error: cancelError } = await supabase
+  const { error: deleteError } = await supabase
     .from("appointment")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-    .eq("id", existing.id);
-  if (cancelError) throw cancelError;
-
-  await supabase
-    .from("availability_block")
     .delete()
-    .like("reason", `%Appointment ID: ${existing.id}%`);
+    .eq("id", existing.id);
+  if (deleteError) throw deleteError;
 
   const { data: quoteData, error: quoteError } = await supabase
     .from("quote_request")
@@ -281,7 +263,6 @@ export async function rescheduleAppointment(
   if (quoteError) throw quoteError;
 
   const resolvedDuration = clampDuration(durationMinutes ?? null);
-  const endTime = minutesToTime(timeToMinutes(newTime) + resolvedDuration);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointment")
@@ -297,16 +278,6 @@ export async function rescheduleAppointment(
     .select()
     .single();
   if (appointmentError) throw appointmentError;
-
-  const { error: blockError } = await supabase.from("availability_block").insert({
-    block_date: newDate,
-    start_time: newTime,
-    end_time: endTime,
-    block_type: "appointment",
-    reason: `Cita agendada - Appointment ID: ${appointment.id}`,
-    sync_source: "app",
-  });
-  if (blockError) throw blockError;
 
   return appointment;
 }
