@@ -64,6 +64,20 @@ function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+const SLOT_INTERVAL = 30;
+const FALLBACK_DURATION = 60;
+const MAX_DURATION = 480;
+
+function clampDuration(raw: number | null): number {
+  if (!raw || raw <= 0) return FALLBACK_DURATION;
+  if (raw > MAX_DURATION) return FALLBACK_DURATION;
+  return raw;
+}
+
+export function getEffectiveDuration(raw: number | null): number {
+  return clampDuration(raw);
+}
+
 export async function getAvailableSlots(quoteRequestId: string): Promise<AvailableSlot[]> {
   const today = toDateStr(new Date());
 
@@ -84,7 +98,8 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
     daySchedules[s.day_of_week] = s;
   }
 
-  const durationMinutes = quoteResponses?.[0]?.duration_minutes ?? null;
+  const rawDuration = quoteResponses?.[0]?.duration_minutes ?? null;
+  const durationMinutes = clampDuration(rawDuration);
 
   const blocksByDate: Record<string, BlockedPeriod[]> = {};
   for (const b of blocks || []) {
@@ -141,18 +156,17 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
     busyPeriods.sort((a, b) => a.start - b.start);
     const freeWindows = subtractPeriods(windowStart, windowEnd, busyPeriods);
 
-    const slotInterval = 30;
     for (const w of freeWindows) {
       let t = w.start;
-      while (t + (durationMinutes ?? 30) <= w.end) {
-        const slotEnd = t + (durationMinutes ?? 30);
+      while (t + durationMinutes <= w.end) {
+        const slotEnd = t + durationMinutes;
         slots.push({
           date: dateStr,
           time: minutesToTime(t),
           end_time: minutesToTime(slotEnd),
           available: true,
         });
-        t += slotInterval;
+        t += SLOT_INTERVAL;
       }
     }
   }
@@ -173,15 +187,7 @@ export async function bookAppointment(
     .single();
   if (quoteError) throw quoteError;
 
-  let resolvedDuration = durationMinutes;
-  if (!resolvedDuration) {
-    const { data: qr } = await supabase
-      .from("quote_response")
-      .select("duration_minutes")
-      .eq("quote_request_id", quoteRequestId)
-      .single();
-    resolvedDuration = qr?.duration_minutes ?? 60;
-  }
+  const resolvedDuration = clampDuration(durationMinutes ?? null);
 
   const endTime = minutesToTime(timeToMinutes(time) + resolvedDuration);
 
