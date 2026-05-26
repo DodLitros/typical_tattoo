@@ -8,6 +8,7 @@ interface AppointmentCalendarProps {
 }
 
 interface QuoteInfo {
+  duration_minutes: number | null;
   price: number | null;
   notes: string | null;
 }
@@ -38,7 +39,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
         .single();
 
       if (qr) {
-        setQuoteInfo({ price: qr.price, notes: qr.notes });
+        setQuoteInfo({ duration_minutes: qr.duration_minutes, price: qr.price, notes: qr.notes });
         durationMinutes = qr.duration_minutes;
       }
 
@@ -68,7 +69,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
     if (!selectedSlot) return;
     setIsBooking(true);
     try {
-      await bookAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, null);
+      await bookAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, quoteInfo?.duration_minutes);
       setViewMode("success");
     } catch (error: any) {
       alert(error.message || "Error al agendar. Intenta de nuevo.");
@@ -81,7 +82,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
     if (!selectedSlot) return;
     setIsBooking(true);
     try {
-      await rescheduleAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, null);
+      await rescheduleAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, quoteInfo?.duration_minutes);
       setViewMode("success");
     } catch (error: any) {
       alert(error.message || "Error al cambiar la cita. Intenta de nuevo.");
@@ -111,6 +112,18 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
   }, [slots, selectedDate]);
 
   const isReschedule = viewMode === "has_appointment_reschedulable";
+
+  const formatDuration = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m}min`;
+  };
+
+  const durationLabel = quoteInfo?.duration_minutes && quoteInfo.duration_minutes > 0
+    ? formatDuration(quoteInfo.duration_minutes)
+    : null;
 
   if (viewMode === "loading") return <div>Cargando horarios...</div>;
 
@@ -155,6 +168,14 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
           <p>{formatFullDate(existingAppointment.appointment_date)} a las {formatTime(existingAppointment.start_time)}</p>
           <p style={{ color: "#f0ad4e", fontSize: "0.85rem", marginTop: "0.5rem" }}>
             Al cambiar la fecha, ese espacio de tiempo se liberará para que otra persona pueda agendarlo.
+          </p>
+        </div>
+      )}
+
+      {durationLabel && (
+        <div className="ui-card" style={{ marginBottom: "1rem", padding: "1rem", borderLeft: "4px solid #4f46e5" }}>
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            Este tatuaje puede durar aproximadamente <strong>{durationLabel}</strong>, es por eso que sólo tienes esas horas disponibles para agendar.
           </p>
         </div>
       )}
