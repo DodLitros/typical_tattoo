@@ -1,34 +1,72 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SizeType } from 'page-flip';
 import { SketchbookPage, type TattooData } from './SketchbookPage';
+import { getPublishedPortfolioPosts, type PortfolioPostWithDetails } from '../../features/portfolio/services/portfolioService';
 import './sketchbook.css';
 
-// Datos de ejemplo
-const tatuajes: TattooData[] = [
-  { id: 't1', img: '/20210513_222323.jpg', tag: 'Blackwork - Brazo', aguja: '3RL' },
-  { id: 't2', img: '/20210513_222323.jpg', tag: 'Tradicional - Pierna', aguja: '9RS' },
-  { id: 't3', img: '/20210513_222323.jpg', tag: 'Microrealismo', aguja: '1RL' },
-];
+function mapPostToTattooData(post: PortfolioPostWithDetails): TattooData {
+  const finalMedia = post.timeline.find(m => m.media_role === 'final');
+  const coverUrl = post.cover_image_url || finalMedia?.storage_url || '/placeholder.jpg';
+
+  const tagParts: string[] = [];
+  if (post.quote?.body_placement) tagParts.push(post.quote.body_placement);
+  if (post.tags && post.tags.length > 0) tagParts.push(post.tags.map(t => t.name).join(' · '));
+
+  const price = post.quoteResponse?.price;
+  const duration = post.quoteResponse?.duration_minutes;
+
+  let metaText = '';
+  if (price) metaText += `$${price}`;
+  if (duration) metaText += metaText ? ` · ${duration}min` : `${duration}min`;
+
+  return {
+    id: post.id,
+    img: coverUrl,
+    tag: post.title,
+    needle: metaText,
+    clientName: post.client?.full_name || null,
+    description: post.quote?.description || null,
+    bodyPlacement: post.quote?.body_placement || null,
+    appointmentDate: post.appointment?.appointment_date || null,
+    price: post.quoteResponse?.price || null,
+    durationMinutes: post.quoteResponse?.duration_minutes || null,
+    notes: post.quoteResponse?.notes || null,
+    timeline: post.timeline,
+    design: post.design,
+  };
+}
 
 export default function Sketchbook() {
   const bookRef = useRef<HTMLDivElement>(null);
   const pageFlipInstance = useRef<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false); // Para evitar el salto visual feo
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [tatuajes, setTatuajes] = useState<TattooData[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
+    const loadData = async () => {
+      try {
+        const posts = await getPublishedPortfolioPosts();
+        if (!isMounted) return;
+        const mapped = posts.map(mapPostToTattooData);
+        setTatuajes(mapped);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Error loading portfolio:', err);
+        setError('No se pudieron cargar los tatuajes');
+      }
+    };
+
     const initBook = async () => {
       if (bookRef.current && !pageFlipInstance.current) {
         try {
-          // 1. Importación dinámica (A prueba de balas contra Vite/Astro)
           const module = await import('page-flip');
           const PageFlip = module.PageFlip;
 
-          // width y height aquí definen UNA SOLA HOJA. 
-          // 450x650 asegura que la hoja sea en formato vertical (como un libro normal).
           pageFlipInstance.current = new PageFlip(bookRef.current, {
-            width: 450, 
+            width: 450,
             height: 650,
             size: 'stretch' as SizeType,
             minWidth: 315,
@@ -36,17 +74,16 @@ export default function Sketchbook() {
             minHeight: 420,
             maxHeight: 1350,
             showCover: true,
-            usePortrait: true, // 1 hoja en móvil, 2 hojas (libro abierto) en PC
+            usePortrait: true,
             mobileScrollSupport: false
           });
 
-          // Seleccionamos las páginas
           const pagesNodes = bookRef.current.querySelectorAll('.page');
           const pagesArray = Array.from(pagesNodes);
-          
+
           pageFlipInstance.current.loadFromHTML(pagesArray);
-          
-          if (isMounted) setIsLoaded(true); // Mostramos el libro cuando ya está armado
+
+          if (isMounted) setIsLoaded(true);
 
         } catch (error) {
           console.error("Error al cargar PageFlip:", error);
@@ -54,14 +91,15 @@ export default function Sketchbook() {
       }
     };
 
-    // Un pequeño retraso asegura que el HTML y CSS existan antes de calcular tamaños
-    const timer = setTimeout(() => {
-      initBook();
-    }, 100);
+    loadData().then(() => {
+      const timer = setTimeout(() => {
+        initBook();
+      }, 100);
+      return () => clearTimeout(timer);
+    });
 
     return () => {
       isMounted = false;
-      clearTimeout(timer);
       if (pageFlipInstance.current) {
         pageFlipInstance.current.destroy();
         pageFlipInstance.current = null;
@@ -69,21 +107,48 @@ export default function Sketchbook() {
     };
   }, []);
 
-  // 2. MATEMÁTICA DEL LIBRO: Calculamos si necesitamos una página en blanco
-  const totalPages = 1 + tatuajes.length + 1; // Portada + Tatuajes + Contraportada
-  const needsBlankPage = totalPages % 2 !== 0; // Si es impar, true.
+  if (error) {
+    return (
+      <div className="sketchbook-container">
+        <div className="page cover page-hard">
+          <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
+            <p className="typewriter-font" style={{ color: '#eaddc5' }}>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tatuajes.length === 0) {
+    return (
+      <div className="sketchbook-container">
+        <div className="page cover page-hard">
+          <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
+            <h1 className="vanguard-font">SKETCHBOOK</h1>
+            <p className="typewriter-font" style={{ color: '#eaddc5', marginTop: '1rem' }}>Próximamente...</p>
+          </div>
+        </div>
+        <div className="page cover page-hard">
+          <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
+            <h2 className="vanguard-font">FIN.</h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPages = 1 + tatuajes.length + 1;
+  const needsBlankPage = totalPages % 2 !== 0;
 
   return (
     <div className="sketchbook-container">
-      
-      {/* Opacity 0 hasta que cargue para que no se vean las páginas hacia abajo */}
-      <div 
-        ref={bookRef} 
+
+      <div
+        ref={bookRef}
         className="flip-book"
         style={{ opacity: isLoaded ? 1 : 0, transition: 'opacity 0.5s ease' }}
       >
-        
-        {/* PÁGINA 1: PORTADA */}
+
         <div className="page cover page-hard">
           <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
             <h1 className="vanguard-font">SKETCHBOOK</h1>
@@ -91,16 +156,14 @@ export default function Sketchbook() {
           </div>
         </div>
 
-        {/* PÁGINAS DE TATUAJES */}
         {tatuajes.map((tatoo, index) => (
-          <SketchbookPage 
-            key={tatoo.id} 
-            tatoo={tatoo} 
+          <SketchbookPage
+            key={tatoo.id}
+            tatoo={tatoo}
             pageNumber={index + 1}
           />
         ))}
 
-        {/* PÁGINA EN BLANCO: Si tenemos hojas impares, agregamos esta para que la librería no crashee */}
         {needsBlankPage && (
           <div className="page ink-page">
             <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -109,7 +172,6 @@ export default function Sketchbook() {
           </div>
         )}
 
-        {/* CONTRAPORTADA */}
         <div className="page cover page-hard">
           <div className="page-content" style={{ justifyContent: 'center', alignItems: 'center' }}>
             <h2 className="vanguard-font">FIN.</h2>

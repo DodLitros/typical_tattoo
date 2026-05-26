@@ -164,8 +164,9 @@ export type Database = {
       }
       design: {
         Row: {
-          appointment_id: string
+          appointment_id: string | null
           id: number
+          quote_request_id: string | null
           sent_to_client_at: string | null
           status: Database["public"]["Enums"]["design status"] | null
           storage_url: string | null
@@ -173,8 +174,9 @@ export type Database = {
           uploaded_at: string | null
         }
         Insert: {
-          appointment_id: string
+          appointment_id?: string | null
           id?: number
+          quote_request_id?: string | null
           sent_to_client_at?: string | null
           status?: Database["public"]["Enums"]["design status"] | null
           storage_url?: string | null
@@ -182,20 +184,101 @@ export type Database = {
           uploaded_at?: string | null
         }
         Update: {
-          appointment_id?: string
+          appointment_id?: string | null
           id?: number
+          quote_request_id?: string | null
           sent_to_client_at?: string | null
           status?: Database["public"]["Enums"]["design status"] | null
           storage_url?: string | null
           thumbnail_url?: string | null
           uploaded_at?: string | null
         }
+Relationships: [
+          {
+            foreignKeyName: "design_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_request"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_portfolio_post_id_fkey"
+            columns: ["portfolio_post_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_post"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      needles: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string | null
+          size: string | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          size?: string | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          size?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
+      appointment_needle: {
+        Row: {
+          appointment_id: string
+          created_at: string | null
+          id: string
+          needle_id: string
+          notes: string | null
+          quantity_used: number | null
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string | null
+          id?: string
+          needle_id: string
+          notes?: string | null
+          quantity_used?: number | null
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string | null
+          id?: string
+          needle_id?: string
+          notes?: string | null
+          quantity_used?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "design_appointment_id_fkey"
+            foreignKeyName: "appointment_needle_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_needle_needle_id_fkey"
+            columns: ["needle_id"]
+            isOneToOne: false
+            referencedRelation: "needles"
             referencedColumns: ["id"]
           },
         ]
@@ -291,6 +374,7 @@ export type Database = {
           id: string
           is_published: boolean | null
           published_at: string | null
+          quote_request_id: string | null
           title: string
           view_count: number | null
         }
@@ -299,6 +383,7 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           published_at?: string | null
+          quote_request_id?: string | null
           title: string
           view_count?: number | null
         }
@@ -307,6 +392,7 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           published_at?: string | null
+          quote_request_id?: string | null
           title?: string
           view_count?: number | null
         }
@@ -315,6 +401,7 @@ export type Database = {
       post_media: {
         Row: {
           id: string
+          media_role: Database["public"]["Enums"]["post media role"] | null
           media_type: Database["public"]["Enums"]["media type"] | null
           post_id: string
           sort_order: number | null
@@ -323,6 +410,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          media_role?: Database["public"]["Enums"]["post media role"] | null
           media_type?: Database["public"]["Enums"]["media type"] | null
           post_id: string
           sort_order?: number | null
@@ -331,6 +419,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          media_role?: Database["public"]["Enums"]["post media role"] | null
           media_type?: Database["public"]["Enums"]["media type"] | null
           post_id?: string
           sort_order?: number | null
@@ -416,6 +505,7 @@ export type Database = {
         Row: {
           body_placement: string | null
           client_id: string
+          completed_at: string | null
           created_at: string
           description: string | null
           id: string
@@ -429,6 +519,7 @@ export type Database = {
         Insert: {
           body_placement?: string | null
           client_id?: string
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -442,6 +533,7 @@ export type Database = {
         Update: {
           body_placement?: string | null
           client_id?: string
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -464,6 +556,7 @@ export type Database = {
       }
       quote_response: {
         Row: {
+          completed_at: string | null
           duration_minutes: number | null
           id: string
           notes: string | null
@@ -473,6 +566,7 @@ export type Database = {
           status: Database["public"]["Enums"]["quote status"] | null
         }
         Insert: {
+          completed_at?: string | null
           duration_minutes?: number | null
           id?: string
           notes?: string | null
@@ -482,6 +576,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["quote status"] | null
         }
         Update: {
+          completed_at?: string | null
           duration_minutes?: number | null
           id?: string
           notes?: string | null
@@ -553,7 +648,8 @@ export type Database = {
         | "cancelled"
       "design status": "draft" | "sent"
       "media type": "image" | "audio"
-      "quote status": "draft" | "sent" | "accepted" | "rejected"
+      "post media role": "reference" | "design" | "final"
+      "quote status": "draft" | "sent" | "accepted" | "rejected" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -692,7 +788,8 @@ export const Constants = {
       ],
       "design status": ["draft", "sent"],
       "media type": ["image", "audio"],
-      "quote status": ["draft", "sent", "accepted", "rejected"],
+      "post media role": ["reference", "design", "final"],
+      "quote status": ["draft", "sent", "accepted", "rejected", "completed"],
     },
   },
 } as const
