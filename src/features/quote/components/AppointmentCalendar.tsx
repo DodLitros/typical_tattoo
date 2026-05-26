@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Button from "../../../components/ui/Button";
-import { getAvailableSlots, bookAppointment, rescheduleAppointment, getExistingAppointment, getEffectiveDuration, canReschedule, type AvailableSlot, type ExistingAppointment } from "../services/appointmentService";
+import { getAvailableSlots, bookAppointment, rescheduleAppointment, getExistingAppointment, canReschedule, type AvailableSlot, type ExistingAppointment } from "../services/appointmentService";
 import { supabase } from "../../../lib/supabaseClient";
 
 interface AppointmentCalendarProps {
@@ -8,7 +8,6 @@ interface AppointmentCalendarProps {
 }
 
 interface QuoteInfo {
-  duration_minutes: number | null;
   price: number | null;
   notes: string | null;
 }
@@ -30,6 +29,19 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
 
   const loadData = async () => {
     try {
+      let durationMinutes: number | null = null;
+
+      const { data: qr } = await supabase
+        .from("quote_response")
+        .select("duration_minutes, price, notes")
+        .eq("quote_request_id", quoteRequestId)
+        .single();
+
+      if (qr) {
+        setQuoteInfo({ price: qr.price, notes: qr.notes });
+        durationMinutes = qr.duration_minutes;
+      }
+
       const apt = await getExistingAppointment(quoteRequestId);
       setExistingAppointment(apt);
 
@@ -46,13 +58,6 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
         setSlots(slotData);
         setViewMode("booking");
       }
-
-      const { data } = await supabase
-        .from("quote_response")
-        .select("duration_minutes, price, notes")
-        .eq("quote_request_id", quoteRequestId)
-        .single();
-      if (data) setQuoteInfo(data);
     } catch (error) {
       console.error("Error cargando datos:", error);
       setViewMode("booking");
@@ -63,7 +68,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
     if (!selectedSlot) return;
     setIsBooking(true);
     try {
-      await bookAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, quoteInfo?.duration_minutes);
+      await bookAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, null);
       setViewMode("success");
     } catch (error: any) {
       alert(error.message || "Error al agendar. Intenta de nuevo.");
@@ -76,32 +81,13 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
     if (!selectedSlot) return;
     setIsBooking(true);
     try {
-      await rescheduleAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, quoteInfo?.duration_minutes);
+      await rescheduleAppointment(quoteRequestId, selectedSlot.date, selectedSlot.time, null);
       setViewMode("success");
     } catch (error: any) {
       alert(error.message || "Error al cambiar la cita. Intenta de nuevo.");
     } finally {
       setIsBooking(false);
     }
-  };
-
-  const effectiveDuration = getEffectiveDuration(quoteInfo?.duration_minutes ?? null);
-  const isFallbackDuration = !quoteInfo?.duration_minutes || quoteInfo.duration_minutes > 480 || quoteInfo.duration_minutes <= 0;
-
-  const formatDuration = (mins: number) => {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    if (h > 0 && m > 0) return `${h}h ${m}min`;
-    if (h > 0) return `${h}h`;
-    return `${m}min`;
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date + "T12:00:00").toLocaleDateString("es-CO", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
   };
 
   const formatFullDate = (date: string) => {
@@ -125,7 +111,6 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
   }, [slots, selectedDate]);
 
   const isReschedule = viewMode === "has_appointment_reschedulable";
-  const accentColor = isReschedule ? "#f0ad4e" : "#4f46e5";
 
   if (viewMode === "loading") return <div>Cargando horarios...</div>;
 
@@ -147,10 +132,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
         <div className="ui-card" style={{ padding: "1.5rem", marginTop: "1rem" }}>
           <p><strong>Fecha:</strong> {formatFullDate(existingAppointment.appointment_date)}</p>
           <p><strong>Hora:</strong> {formatTime(existingAppointment.start_time)}</p>
-          {existingAppointment.duration_minutes && (
-            <p><strong>Duración:</strong> {formatDuration(existingAppointment.duration_minutes)}</p>
-          )}
-          <div style={{ marginTop: "1rem", padding: "1rem", background: "#3a2a1a", borderRadius: "0.5rem", borderLeft: `4px solid #f0ad4e` }}>
+          <div style={{ marginTop: "1rem", padding: "1rem", background: "#3a2a1a", borderRadius: "0.5rem", borderLeft: "4px solid #f0ad4e" }}>
             <p style={{ color: "#f0ad4e", margin: 0, fontSize: "0.9rem" }}>
               Esta cita ya no se puede modificar. Solo puedes cambiarla hasta 2 días antes de la fecha agendada.
             </p>
@@ -160,9 +142,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
     );
   }
 
-  // booking or reschedule
   const showCalendar = viewMode === "booking" || viewMode === "has_appointment_reschedulable";
-
   if (!showCalendar) return null;
 
   return (
@@ -179,19 +159,9 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
         </div>
       )}
 
-      {quoteInfo && (
+      {quoteInfo && quoteInfo.price != null && (
         <div className="ui-card" style={{ marginBottom: "1rem", padding: "1rem" }}>
-          {!isFallbackDuration && quoteInfo.duration_minutes && (
-            <p><strong>Duración:</strong> {formatDuration(quoteInfo.duration_minutes)}</p>
-          )}
-          {isFallbackDuration && (
-            <p style={{ color: "#f0ad4e", fontSize: "0.9rem" }}>
-              Duración por confirmar. Se agendará un bloque de {formatDuration(effectiveDuration)}.
-            </p>
-          )}
-          {quoteInfo.price != null && (
-            <p><strong>Precio:</strong> ${Number(quoteInfo.price).toLocaleString("es-CO")}</p>
-          )}
+          <p><strong>Precio:</strong> ${Number(quoteInfo.price).toLocaleString("es-CO")}</p>
           {quoteInfo.notes && (
             <p style={{ fontSize: "0.9rem", color: "#aaa" }}>{quoteInfo.notes}</p>
           )}
@@ -268,7 +238,7 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
                 </option>
                 {timesForDate.map((slot) => (
                   <option key={`${slot.date}-${slot.time}`} value={`${slot.date}-${slot.time}`}>
-                    {formatTime(slot.time)} — {formatTime(slot.end_time)}
+                    {formatTime(slot.time)}
                   </option>
                 ))}
               </select>
@@ -281,9 +251,6 @@ export default function AppointmentCalendar({ quoteRequestId }: AppointmentCalen
         <div className="ui-card" style={{ padding: "1rem" }}>
           <p style={{ fontWeight: "bold" }}>
             {isReschedule ? "Nueva cita:" : "Tu cita:"} {formatFullDate(selectedSlot.date)} a las {formatTime(selectedSlot.time)}
-          </p>
-          <p style={{ color: "#aaa", fontSize: "0.9rem" }}>
-            Duración: {formatDuration(effectiveDuration)} (hasta las {formatTime(selectedSlot.end_time)})
           </p>
           {isReschedule && (
             <p style={{ color: "#f0ad4e", fontSize: "0.85rem", marginTop: "0.5rem" }}>

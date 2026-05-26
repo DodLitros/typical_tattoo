@@ -74,16 +74,15 @@ function toDateStr(d: Date): string {
 
 const SLOT_INTERVAL = 30;
 const FALLBACK_DURATION = 60;
-const MAX_DURATION = 480;
+const OVERTIME_BUFFER = 120;
 
-function clampDuration(raw: number | null): number {
+function resolveDuration(raw: number | null): number {
   if (!raw || raw <= 0) return FALLBACK_DURATION;
-  if (raw > MAX_DURATION) return FALLBACK_DURATION;
   return raw;
 }
 
 export function getEffectiveDuration(raw: number | null): number {
-  return clampDuration(raw);
+  return resolveDuration(raw);
 }
 
 export async function getExistingAppointment(quoteRequestId: string): Promise<ExistingAppointment | null> {
@@ -107,7 +106,6 @@ export function canReschedule(appointment: ExistingAppointment): boolean {
 async function checkOverlap(date: string, startTime: string, durationMinutes: number): Promise<void> {
   const startMin = timeToMinutes(startTime);
   const endMin = startMin + durationMinutes;
-  const endTime = minutesToTime(endMin);
 
   const [existingDayApts, existingBlocks] = await Promise.all([
     supabase.from("appointment")
@@ -163,8 +161,7 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
     daySchedules[s.day_of_week] = s;
   }
 
-  const rawDuration = quoteResponses?.[0]?.duration_minutes ?? null;
-  const durationMinutes = clampDuration(rawDuration);
+  const durationMinutes = resolveDuration(quoteResponses?.[0]?.duration_minutes ?? null);
 
   const blocksByDate: Record<string, BlockedPeriod[]> = {};
   for (const b of blocks || []) {
@@ -200,7 +197,7 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
     if (dayBlocks.some((b) => b.block_type === "full_day")) continue;
 
     const windowStart = timeToMinutes(schedule.start_time);
-    const windowEnd = timeToMinutes(schedule.end_time);
+    const windowEnd = timeToMinutes(schedule.end_time) + OVERTIME_BUFFER;
 
     const busyPeriods: { start: number; end: number }[] = [];
 
@@ -225,6 +222,8 @@ export async function getAvailableSlots(quoteRequestId: string): Promise<Availab
       let t = w.start;
       while (t + durationMinutes <= w.end) {
         const slotEnd = t + durationMinutes;
+        const scheduleEnd = timeToMinutes(schedule.end_time);
+        if (t >= scheduleEnd) continue;
         slots.push({
           date: dateStr,
           time: minutesToTime(t),
@@ -257,7 +256,7 @@ export async function bookAppointment(
     .single();
   if (quoteError) throw quoteError;
 
-  const resolvedDuration = clampDuration(durationMinutes ?? null);
+  const resolvedDuration = resolveDuration(durationMinutes ?? null);
 
   await checkOverlap(date, time, resolvedDuration);
 
@@ -303,7 +302,7 @@ export async function rescheduleAppointment(
     .single();
   if (quoteError) throw quoteError;
 
-  const resolvedDuration = clampDuration(durationMinutes ?? null);
+  const resolvedDuration = resolveDuration(durationMinutes ?? null);
 
   await checkOverlap(newDate, newTime, resolvedDuration);
 
