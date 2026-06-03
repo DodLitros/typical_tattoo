@@ -5,7 +5,7 @@ import { useRegisterForm } from "../hooks/useRegisterForm";
 import { signInWithOtp, verifyOtp } from "../services/authService";
 import { createQuoteRequestForClient } from "../services/quoteService";
 
-export default function RegisterModal() {
+export default function RegisterModal({ onAuthSuccess }: { onAuthSuccess?: () => void }) {
     const { 
       values, 
       isSubmitting, 
@@ -46,6 +46,7 @@ export default function RegisterModal() {
       } else {
         console.log("Cliente registrado exitosamente");
         setIsVerified(true);
+        onAuthSuccess?.();
       }
   
       setIsSubmitting(false);

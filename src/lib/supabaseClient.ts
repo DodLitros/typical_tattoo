@@ -14,4 +14,3 @@ const options = {
   }
 }
 export const supabase = createClient(supabaseUrl, supabaseKey, options);
-const { data, error } = await supabase.auth.getSession();

@@ -39,7 +39,6 @@ export async function createQuoteRequestForClient() {
     })
     .select("id")
     .single();
-    debugger; 
   if (error) throw error;
   return data;
 }

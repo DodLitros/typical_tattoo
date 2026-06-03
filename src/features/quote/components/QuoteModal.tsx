@@ -4,6 +4,7 @@ import Modal from "../../../components/ui/Modal";
 import RegisterModal from "./RegisterModal";
 import QuoteRequestForm from "./QuoteRequestForm";
 import { getCurrentUser, createQuoteRequestForClient } from "../services/quoteService";
+import { supabase } from "../../../lib/supabaseClient";
 
 export default function QuoteModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +14,13 @@ export default function QuoteModal() {
 
   useEffect(() => {
     checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuth = async () => {
@@ -21,9 +29,12 @@ export default function QuoteModal() {
     setIsLoading(false);
   };
 
+  const handleAuthSuccess = async () => {
+    await checkAuth();
+  };
+
   const handleClick = async () => {
     if (isAuthenticated) {
-      // Crear nueva quote_request y obtener el ID
       const quoteRequest = await createQuoteRequestForClient();
       setQuoteRequestId(quoteRequest.id);
     }
@@ -44,7 +55,7 @@ export default function QuoteModal() {
             title={isAuthenticated ? "Cotiza tu tatuaje" : "Regístrate"} 
             onClose={() => setIsOpen(false)}
           >
-           <RegisterModal />
+           <RegisterModal onAuthSuccess={handleAuthSuccess} />
           </Modal>
         )}
     </>

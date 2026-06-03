@@ -1,3 +1,27 @@
 <footer class="site-footer">
-  <small>© {new Date().getFullYear()} Typical Tattoo.</small>
+  <div class="footer-content">
+    <small>© {new Date().getFullYear()} Typical Tattoo.</small>
+    <a href="/privacy-policy" class="footer-link">Política de Privacidad</a>
+  </div>
 </footer>
+
+<style>
+  .footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .footer-link {
+    color: #999;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+
+  .footer-link:hover {
+    color: #f8f8f8;
+    text-decoration: underline;
+  }
+</style>
